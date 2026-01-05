@@ -1,0 +1,4 @@
+/outputs/*
+/preprocess/*
+/data/*
+__pycache__/
