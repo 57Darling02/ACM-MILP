@@ -26,7 +26,7 @@ In order to build the environment, you can follow commands in `scripts/environme
 
 Or alternatively, to build the environment from a file,
 ```
-conda env create -f scripts/environment.yml
+conda env create -f scripts/environment.yaml
 ```
 
 ## Usage
