@@ -27,12 +27,16 @@ def preprocess_(file: str, config: DictConfig):
     sample_path = path.join(config.paths.data_dir, file)
     data, features, community_part = instance2graph(sample_path, config.compute_features, True, config.dataset.resolution)
 
-    with open(path.join(config.paths.dataset_samples_dir, os.path.splitext(file)[0]+".pkl"), "wb") as f:
+    output_path = path.join(config.paths.dataset_samples_dir, os.path.splitext(file)[0]+".pkl")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "wb") as f:
         pickle.dump(data, f)
 
     community_part = np.array(community_part, dtype=object)
 
-    np.save(path.join(config.paths.community_info_dir, os.path.splitext(file)[0]+".npy"), community_part)
+    community_path = path.join(config.paths.community_info_dir, os.path.splitext(file)[0]+".npy")
+    os.makedirs(os.path.dirname(community_path), exist_ok=True)
+    np.save(community_path, community_part)
 
     if config.solve_instances:
         solving_results = {"instance": file}
@@ -109,7 +113,17 @@ def preprocess(config: DictConfig):
     os.makedirs(config.paths.dataset_stats_dir, exist_ok=True)
     os.makedirs(config.paths.community_info_dir, exist_ok=True)
 
-    files: list = os.listdir(config.paths.data_dir)
+    files = []
+    for root, _, filenames in os.walk(config.paths.data_dir):
+        for filename in filenames:
+            # Filter for common MILP instance extensions
+            if filename.endswith(('.lp', '.mps', '.mps.gz', '.lp.gz')):
+                rel_dir = os.path.relpath(root, config.paths.data_dir)
+                if rel_dir == ".":
+                    files.append(filename)
+                else:
+                    files.append(os.path.join(rel_dir, filename))
+    
     files.sort()
     if len(files) > config.dataset.num_train:
         files = files[:config.dataset.num_train]
