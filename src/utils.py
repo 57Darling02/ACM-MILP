@@ -53,14 +53,21 @@ def instance2graph(path: str, compute_features: bool = False, comm_detec: bool =
         n_vars = len(variable_features)
         n_cont_vars = np.sum(variable_features, axis=0)[1]
 
-        lhs = coo_matrix((edge_features.reshape(-1), edge_indices), shape=(n_conss, n_vars)).toarray()
+        # Use sparse matrix logic to avoid OOM on large instances
+        # lhs = coo_matrix((edge_features.reshape(-1), edge_indices), shape=(n_conss, n_vars)).toarray()
+        
         rhs = constraint_features.flatten()
         obj = variable_features[:, 0].flatten()
 
-        nonzeros = (lhs != 0)
-        n_nonzeros = np.sum(nonzeros)
-        lhs_coefs = lhs[np.where(nonzeros)]
-        var_degree, cons_degree = nonzeros.sum(axis=0), nonzeros.sum(axis=1)
+        # Compute stats directly from sparse representation (edge_indices and edge_features)
+        n_nonzeros = len(edge_features)
+        lhs_coefs = edge_features.flatten()
+        
+        # Calculate degrees using bincount on indices
+        # edge_indices[0] -> row indices (constraints)
+        # edge_indices[1] -> col indices (variables)
+        cons_degree = np.bincount(edge_indices[0], minlength=n_conss)
+        var_degree = np.bincount(edge_indices[1], minlength=n_vars)
 
         nx_edge_indices = edge_indices.copy()
         nx_edge_indices[1] += edge_indices[0].max() + 1
