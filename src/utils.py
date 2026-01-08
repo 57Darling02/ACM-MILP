@@ -156,21 +156,28 @@ def instance2graph(path: str, compute_features: bool = False, comm_detec: bool =
             return graph, features
 
 
-def solve_instance(path: str):
+def solve_instance(path: str, mip_gap: float = 0.0, time_limit: float = 60.0):
     """
     Solve the instance using Gurobi.
     """
     env = gp.Env(empty=True)
     env.setParam("OutputFlag", 0)
-    env.setParam("TimeLimit", 60)
+    env.setParam("TimeLimit", time_limit)
+    env.setParam("MIPGap", mip_gap)
     env.setParam("Threads", 1)
     env.start()
     model = gp.read(path, env=env)
     model.optimize()
 
+    # Handle cases where no solution is found
+    if model.SolCount > 0:
+        obj_val = model.objVal
+    else:
+        obj_val = float('inf') if model.ModelSense == 1 else float('-inf')
+
     results = {
         "status": model.status,
-        "obj": model.objVal,
+        "obj": obj_val,
         "num_nodes": model.NodeCount,
         "num_sols": model.SolCount,
         "solving_time": model.Runtime,

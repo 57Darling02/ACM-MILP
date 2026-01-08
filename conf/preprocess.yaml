@@ -9,3 +9,7 @@ num_workers: 10
 
 compute_features: true
 solve_instances: true
+
+solver:
+  mip_gap: 0.1  # 10% gap
+  time_limit: 60.0 # seconds

@@ -40,7 +40,11 @@ def preprocess_(file: str, config: DictConfig):
 
     if config.solve_instances:
         solving_results = {"instance": file}
-        solving_results.update(solve_instance(sample_path))
+        # Get solver params from config, default to strict if not present
+        mip_gap = config.solver.mip_gap if 'solver' in config else 0.0
+        time_limit = config.solver.time_limit if 'solver' in config else 60.0
+        
+        solving_results.update(solve_instance(sample_path, mip_gap, time_limit))
     else:
         solving_results = None
     return features, solving_results
