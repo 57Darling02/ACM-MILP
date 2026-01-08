@@ -11,4 +11,4 @@ seed: 3
 cuda: 0
 num_workers: 10
 
-dir:
+dir: ./outputs/generate
