@@ -2,3 +2,4 @@
 /preprocess/*
 /data/*
 __pycache__/
+*.log
