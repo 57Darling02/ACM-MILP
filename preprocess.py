@@ -43,8 +43,14 @@ def preprocess_(file: str, config: DictConfig):
         # Get solver params from config, default to strict if not present
         mip_gap = config.solver.mip_gap if 'solver' in config else 0.0
         time_limit = config.solver.time_limit if 'solver' in config else 60.0
+        save_solution = config.solver.save_solution if 'solver' in config and 'save_solution' in config.solver else False
+        solution_dir = config.solver.solution_dir if 'solver' in config and 'solution_dir' in config.solver else None
         
-        solving_results.update(solve_instance(sample_path, mip_gap, time_limit))
+        solution_file = None
+        if save_solution and solution_dir:
+            solution_file = path.join(solution_dir, os.path.splitext(file)[0] + ".sol")
+
+        solving_results.update(solve_instance(sample_path, mip_gap, time_limit, save_solution, solution_file))
     else:
         solving_results = None
     return features, solving_results

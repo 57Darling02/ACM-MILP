@@ -156,7 +156,7 @@ def instance2graph(path: str, compute_features: bool = False, comm_detec: bool =
             return graph, features
 
 
-def solve_instance(path: str, mip_gap: float = 0.0, time_limit: float = 60.0):
+def solve_instance(path: str, mip_gap: float = 0.0, time_limit: float = 60.0, save_solution: bool = False, solution_file: str = None):
     """
     Solve the instance using Gurobi.
     """
@@ -172,6 +172,9 @@ def solve_instance(path: str, mip_gap: float = 0.0, time_limit: float = 60.0):
     # Handle cases where no solution is found
     if model.SolCount > 0:
         obj_val = model.objVal
+        if save_solution and solution_file:
+            os.makedirs(os.path.dirname(solution_file), exist_ok=True)
+            model.write(solution_file)
     else:
         obj_val = float('inf') if model.ModelSense == 1 else float('-inf')
 
