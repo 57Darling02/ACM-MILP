@@ -1,5 +1,5 @@
-batch_size: 8
-batch_repeat_size: 2
+batch_size: 1
+batch_repeat_size: 1
 
 steps: 6000
 save_start_stage_1: 500

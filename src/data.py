@@ -57,6 +57,21 @@ class BipartiteGraph(Data):
         return len(self.x_constraints)
 
 
+def list_relative_files(root_dir: str, suffix: str):
+    files = []
+    for current_root, _, filenames in os.walk(root_dir):
+        for filename in filenames:
+            if not filename.endswith(suffix):
+                continue
+            rel_dir = os.path.relpath(current_root, root_dir)
+            if rel_dir == ".":
+                files.append(filename)
+            else:
+                files.append(os.path.join(rel_dir, filename))
+    files.sort()
+    return files
+
+
 class InstanceDataset(Dataset):
     def __init__(self,
                  data_dir: str,
@@ -76,8 +91,11 @@ class InstanceDataset(Dataset):
         super().__init__()
         self.data_dir = data_dir
         self.community_dir = community_dir
-        self.files = sorted(os.listdir(data_dir))
-        self.community_files = sorted([file for file in os.listdir(community_dir) if file.endswith('.npy')])
+        self.files = list_relative_files(data_dir, ".pkl")
+        community_files = list_relative_files(community_dir, ".npy")
+        community_map = {
+            os.path.splitext(file)[0]: file for file in community_files
+        }
         self.solving_path = solving_results_path
 
         if self.solving_path:
@@ -93,6 +111,20 @@ class InstanceDataset(Dataset):
 
         if num_instances:
             self.files = self.files[:num_instances]
+
+        missing_community = [
+            file for file in self.files
+            if os.path.splitext(file)[0] not in community_map
+        ]
+        if missing_community:
+            raise FileNotFoundError(
+                f"Missing community files for {len(missing_community)} samples, "
+                f"first missing sample: {missing_community[0]}"
+            )
+        self.community_files = [
+            community_map[os.path.splitext(file)[0]]
+            for file in self.files
+        ]
 
     def len(self):
         return len(self.files)
