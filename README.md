@@ -1,4 +1,4 @@
-# ACM-MILP: Adaptive Constraint Modification via Grouping and Selection for Hardness-Preserving MILP Instance Generation
+﻿# ACM-MILP: Adaptive Constraint Modification via Grouping and Selection for Hardness-Preserving MILP Instance Generation
 
 This is the code of paper **"ACM-MILP: Adaptive Constraint Modification via Grouping and Selection for Hardness-Preserving MILP Instance Generation"**. *Ziao Guo, Yang Li, Chang Liu, Wenli Ouyang, Junchi Yan.* ICML 2024. 
 
@@ -85,6 +85,49 @@ python generate.py dataset=mis \
 ```
 The generated instances and benchmarking results are saved under `${TRAIN DIR}/generate/${DATE}/${TIME}`.
 
+### 4. Visualizing preprocess, train, and generate outputs
+
+The repository also provides standalone visualization scripts under `./scripts/`. These scripts are designed to work directly on exported CSV files, TensorBoard event files, or training logs, so they can be run independently on a server even if the full training environment is not available locally.
+
+Install the plotting dependencies first:
+```
+pip install matplotlib pandas scipy
+```
+If you want `visualize_train.py` to read TensorBoard event files directly, also install:
+```
+pip install tensorboard
+```
+
+To visualize preprocessing statistics with KDE curves for graph features and hardness plots from `solving_results.csv`,
+```
+python scripts/visualize_preprocess.py \
+    --stats-dir preprocess/mis/stats
+```
+This reads `features.csv` and `solving_results.csv` under the stats directory and saves figures under `preprocess/mis/stats/visualizations/`.
+
+To visualize the training loss curve,
+```
+python scripts/visualize_train.py \
+    --train-dir outputs/train/${DATE}/${TIME}-${JOB NAME}
+```
+The script first tries to read `Train/total_loss` from TensorBoard event files. If TensorBoard parsing is unavailable, it automatically falls back to parsing the training log. The generated figure and extracted CSV are saved under `${TRAIN DIR}/visualizations/`.
+
+To visualize generated benchmark outputs with KDE curves and hardness plots,
+```
+python scripts/visualize_generate.py \
+    --benchmark-dir ${TRAIN DIR}/eta-0.1/benchmark_step_500 \
+    --reference-stats-dir preprocess/mis/stats
+```
+This overlays generated distributions with the reference distributions from preprocessing and saves figures under `${TRAIN DIR}/eta-0.1/benchmark_step_500/visualizations/`.
+
+Useful optional arguments:
+```
+--output-dir <DIR>      # custom output directory
+--columns col1 col2     # only plot selected feature columns
+--bins 40               # histogram bin count used with KDE plots
+--dpi 300               # output image resolution
+```
+
 ## Citation
 
 If you find this code useful, please consider citing the following paper.
@@ -98,5 +141,3 @@ booktitle={Forty-first International Conference on Machine Learning},
 year={2024}
 }
 ```
-
-
