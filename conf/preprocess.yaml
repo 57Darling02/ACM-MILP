@@ -13,5 +13,5 @@ solve_instances: true
 solver:
   mip_gap: 0.1  # 10% gap
   time_limit: 500.0 # seconds
-  save_solution: false
+  save_solution: true
   solution_dir: ./preprocess/${dataset.name}/solutions/

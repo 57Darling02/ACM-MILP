@@ -98,6 +98,12 @@ def to_numeric_series(series: pd.Series) -> pd.Series:
     return values.astype(float)
 
 
+def build_title(base: str, annotation: Optional[str] = None) -> str:
+    if annotation:
+        return "{0}\n{1}".format(base, annotation)
+    return base
+
+
 def compute_kde_curve(values: np.ndarray, points: int = 256) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     if values.size < 2:
         return None
@@ -114,6 +120,58 @@ def compute_kde_curve(values: np.ndarray, points: int = 256) -> Optional[Tuple[n
     return x, y
 
 
+def density_on_grid(values: np.ndarray, grid: np.ndarray) -> np.ndarray:
+    if values.size == 0:
+        return np.zeros_like(grid)
+
+    std = float(np.std(values))
+    if values.size < 2 or std < 1e-12:
+        center = float(np.mean(values))
+        width = max((grid[-1] - grid[0]) * 0.01, 1e-3)
+        density = np.exp(-0.5 * ((grid - center) / width) ** 2)
+        density = density / (width * np.sqrt(2 * np.pi))
+        return density
+
+    return gaussian_kde(values)(grid)
+
+
+def normalize_density(density: np.ndarray) -> np.ndarray:
+    density = np.asarray(density, dtype=float)
+    density = np.clip(density, 0.0, None) + 1e-12
+    return density / density.sum()
+
+
+def compute_js_divergence(values_a: np.ndarray, values_b: np.ndarray, points: int = 512) -> Optional[float]:
+    values_a = np.asarray(values_a, dtype=float)
+    values_b = np.asarray(values_b, dtype=float)
+    values_a = values_a[np.isfinite(values_a)]
+    values_b = values_b[np.isfinite(values_b)]
+
+    if values_a.size == 0 or values_b.size == 0:
+        return None
+
+    left = float(min(values_a.min(), values_b.min()))
+    right = float(max(values_a.max(), values_b.max()))
+    pooled = np.concatenate([values_a, values_b])
+    pooled_std = float(np.std(pooled))
+    span = right - left
+    padding = max(span * 0.05, pooled_std * 0.25, 1e-3)
+    grid = np.linspace(left - padding, right + padding, points)
+
+    p = normalize_density(density_on_grid(values_a, grid))
+    q = normalize_density(density_on_grid(values_b, grid))
+    m = 0.5 * (p + q)
+
+    js_divergence = 0.5 * (np.sum(p * np.log(p / m)) + np.sum(q * np.log(q / m)))
+    return float(js_divergence)
+
+
+def compute_js_divergence_from_series(series_a: pd.Series, series_b: pd.Series, points: int = 512) -> Optional[float]:
+    values_a = to_numeric_series(series_a).to_numpy()
+    values_b = to_numeric_series(series_b).to_numpy()
+    return compute_js_divergence(values_a, values_b, points=points)
+
+
 def make_distribution_plot(
     series_map: Dict[str, pd.Series],
     title: str,
@@ -122,6 +180,7 @@ def make_distribution_plot(
     bins: int = 30,
     dpi: int = 200,
     show_hist: bool = True,
+    annotation: Optional[str] = None,
 ) -> None:
     fig, ax = plt.subplots(figsize=(8, 5))
     plotted = False
@@ -154,7 +213,7 @@ def make_distribution_plot(
         plt.close(fig)
         return
 
-    ax.set_title(title)
+    ax.set_title(build_title(title, annotation))
     ax.set_xlabel(x_label)
     ax.set_ylabel("Density")
     ax.grid(alpha=0.25, linestyle="--")
@@ -172,6 +231,7 @@ def make_grid_kde_plots(
     bins: int = 30,
     dpi: int = 200,
     max_cols: int = 3,
+    annotations: Optional[Dict[str, str]] = None,
 ) -> None:
     columns = [col for col in columns if any(col in df.columns for df in dataframe_map.values())]
     if not columns:
@@ -209,7 +269,7 @@ def make_grid_kde_plots(
                 ax.plot(x, y, color=color, linewidth=2.0, label=label)
             plotted = True
 
-        ax.set_title(column)
+        ax.set_title(build_title(column, (annotations or {}).get(column)))
         ax.set_xlabel(column)
         ax.set_ylabel("Density")
         ax.grid(alpha=0.2, linestyle="--")
@@ -285,6 +345,7 @@ def plot_feature_suite(
     title_prefix: str,
     bins: int = 30,
     dpi: int = 200,
+    annotations: Optional[Dict[str, str]] = None,
 ) -> List[str]:
     ensure_dir(output_dir)
     saved_paths = []
@@ -297,6 +358,7 @@ def plot_feature_suite(
         output_path=overview_path,
         bins=bins,
         dpi=dpi,
+        annotations=annotations,
     )
     if os.path.exists(overview_path):
         saved_paths.append(overview_path)
@@ -316,6 +378,7 @@ def plot_feature_suite(
             output_path=plot_path,
             bins=bins,
             dpi=dpi,
+            annotation=(annotations or {}).get(column),
         )
         if os.path.exists(plot_path):
             saved_paths.append(plot_path)
@@ -329,6 +392,7 @@ def plot_hardness_suite(
     title_prefix: str,
     bins: int = 30,
     dpi: int = 200,
+    annotations: Optional[Dict[str, str]] = None,
 ) -> List[str]:
     ensure_dir(output_dir)
     saved_paths = []
@@ -347,6 +411,7 @@ def plot_hardness_suite(
             output_path=plot_path,
             bins=bins,
             dpi=dpi,
+            annotation=(annotations or {}).get(column),
         )
         if os.path.exists(plot_path):
             saved_paths.append(plot_path)

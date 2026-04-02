@@ -2,6 +2,7 @@
 import os
 
 from vis_utils import (
+    compute_js_divergence_from_series,
     ensure_dir,
     load_csv,
     pick_feature_columns,
@@ -11,9 +12,30 @@ from vis_utils import (
 )
 
 
+def format_js_annotations(dataframe_map, columns):
+    if "generated" not in dataframe_map or "reference" not in dataframe_map:
+        return {}, {}
+
+    js_values = {}
+    js_annotations = {}
+    generated_df = dataframe_map["generated"]
+    reference_df = dataframe_map["reference"]
+
+    for column in columns:
+        if column not in generated_df.columns or column not in reference_df.columns:
+            continue
+        js_value = compute_js_divergence_from_series(generated_df[column], reference_df[column])
+        if js_value is None:
+            continue
+        js_values[column] = js_value
+        js_annotations[column] = "JSD={0:.4f}".format(js_value)
+
+    return js_values, js_annotations
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Visualize generated-instance benchmark outputs with KDE and hardness plots."
+        description="Visualize generated-instance benchmark outputs with KDE, hardness plots, and JS divergence against preprocess statistics."
     )
     parser.add_argument("--benchmark-dir", required=True, help="Directory like outputs/train/.../eta-0.1/benchmark_step_500")
     parser.add_argument("--features-csv", default=None, help="Optional override for benchmark features.csv")
@@ -57,6 +79,9 @@ def main():
     ]
     columns = common_columns if len(dataframe_map) > 1 else generated_columns
 
+    feature_js_values, feature_js_annotations = format_js_annotations(dataframe_map, columns)
+    hardness_js_values, hardness_js_annotations = format_js_annotations(hardness_map, ["solving_time", "num_nodes"])
+
     feature_paths = plot_feature_suite(
         dataframe_map=dataframe_map,
         output_dir=feature_output_dir,
@@ -64,6 +89,7 @@ def main():
         title_prefix="Generate",
         bins=args.bins,
         dpi=args.dpi,
+        annotations=feature_js_annotations,
     )
     hardness_paths = plot_hardness_suite(
         dataframe_map=hardness_map,
@@ -71,20 +97,37 @@ def main():
         title_prefix="Generate",
         bins=args.bins,
         dpi=args.dpi,
+        annotations=hardness_js_annotations,
     )
+
+    js_summary = {
+        "features": feature_js_values,
+        "hardness": hardness_js_values,
+        "feature_mean_jsd": (sum(feature_js_values.values()) / len(feature_js_values)) if feature_js_values else None,
+        "hardness_mean_jsd": (sum(hardness_js_values.values()) / len(hardness_js_values)) if hardness_js_values else None,
+    }
+    js_summary_path = None
+    if feature_js_values or hardness_js_values:
+        js_summary_path = os.path.join(output_dir, "js_divergence.json")
+        write_manifest(js_summary_path, js_summary)
+
+    manifest_payload = {
+        "stage": "generate",
+        "benchmark_dir": args.benchmark_dir,
+        "features_csv": features_csv,
+        "solving_results_csv": solving_csv,
+        "reference_features_csv": reference_features_csv,
+        "reference_solving_results_csv": reference_solving_csv,
+        "feature_columns": columns,
+        "js_divergence": js_summary,
+        "generated_files": feature_paths + hardness_paths,
+    }
+    if js_summary_path is not None:
+        manifest_payload["generated_files"].append(js_summary_path)
 
     write_manifest(
         os.path.join(output_dir, "manifest.json"),
-        {
-            "stage": "generate",
-            "benchmark_dir": args.benchmark_dir,
-            "features_csv": features_csv,
-            "solving_results_csv": solving_csv,
-            "reference_features_csv": reference_features_csv,
-            "reference_solving_results_csv": reference_solving_csv,
-            "feature_columns": columns,
-            "generated_files": feature_paths + hardness_paths,
-        },
+        manifest_payload,
     )
 
     print("Saved generate visualizations to:", output_dir)
