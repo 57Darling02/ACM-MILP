@@ -32,6 +32,42 @@ VAR_FEATURES = ["objective", "is_type_binary", "is_type_integer", "is_type_impli
 
 VAR_TYPE_FEATURES = ["B", "I", "M", "C"]
 
+GUROBI_STATUS_NAMES = {
+    gp.GRB.LOADED: "LOADED",
+    gp.GRB.OPTIMAL: "OPTIMAL",
+    gp.GRB.INFEASIBLE: "INFEASIBLE",
+    gp.GRB.INF_OR_UNBD: "INF_OR_UNBD",
+    gp.GRB.UNBOUNDED: "UNBOUNDED",
+    gp.GRB.CUTOFF: "CUTOFF",
+    gp.GRB.ITERATION_LIMIT: "ITERATION_LIMIT",
+    gp.GRB.NODE_LIMIT: "NODE_LIMIT",
+    gp.GRB.TIME_LIMIT: "TIME_LIMIT",
+    gp.GRB.SOLUTION_LIMIT: "SOLUTION_LIMIT",
+    gp.GRB.INTERRUPTED: "INTERRUPTED",
+    gp.GRB.NUMERIC: "NUMERIC",
+    gp.GRB.SUBOPTIMAL: "SUBOPTIMAL",
+    gp.GRB.INPROGRESS: "INPROGRESS",
+    gp.GRB.USER_OBJ_LIMIT: "USER_OBJ_LIMIT",
+}
+
+
+def _safe_model_attr(model, attr_name: str, default=np.nan):
+    try:
+        return model.getAttr(attr_name)
+    except (gp.GurobiError, AttributeError):
+        return default
+
+
+def _relative_gap(obj_val: float, obj_bound: float) -> float:
+    if not np.isfinite(obj_val) or not np.isfinite(obj_bound):
+        return np.nan
+
+    diff = abs(obj_val - obj_bound)
+    denom = abs(obj_val)
+    if denom < 1e-10:
+        return 0.0 if diff < 1e-10 else np.inf
+    return diff / denom
+
 
 def instance2graph(path: str, compute_features: bool = False, comm_detec: bool = True, resolution: float = 1):
     """
@@ -160,6 +196,27 @@ def solve_instance(path: str, mip_gap: float = 0.0, time_limit: float = 60.0, sa
     """
     Solve the instance using Gurobi.
     """
+    first_solution = {
+        "t_first_feas": np.nan,
+        "obj_first_feas": np.nan,
+        "gap_first_feas": np.nan,
+    }
+
+    def first_solution_callback(model, where):
+        if where != gp.GRB.Callback.MIPSOL:
+            return
+        if np.isfinite(first_solution["t_first_feas"]):
+            return
+
+        try:
+            obj_first_feas = float(model.cbGet(gp.GRB.Callback.MIPSOL_OBJ))
+            obj_bound = float(model.cbGet(gp.GRB.Callback.MIPSOL_OBJBND))
+            first_solution["t_first_feas"] = float(model.cbGet(gp.GRB.Callback.RUNTIME))
+            first_solution["obj_first_feas"] = obj_first_feas
+            first_solution["gap_first_feas"] = _relative_gap(obj_first_feas, obj_bound)
+        except gp.GurobiError:
+            return
+
     env = gp.Env(empty=True)
     env.setParam("OutputFlag", 0)
     env.setParam("TimeLimit", time_limit)
@@ -167,23 +224,36 @@ def solve_instance(path: str, mip_gap: float = 0.0, time_limit: float = 60.0, sa
     env.setParam("Threads", 1)
     env.start()
     model = gp.read(path, env=env)
-    model.optimize()
+    model.optimize(first_solution_callback)
 
     # Handle cases where no solution is found
     if model.SolCount > 0:
-        obj_val = model.objVal
+        obj_val = _safe_model_attr(model, "ObjVal")
         if save_solution and solution_file:
             os.makedirs(os.path.dirname(solution_file), exist_ok=True)
             model.write(solution_file)
     else:
         obj_val = float('inf') if model.ModelSense == 1 else float('-inf')
 
+    status = _safe_model_attr(model, "Status")
     results = {
-        "status": model.status,
+        "status": status,
+        "status_name": GUROBI_STATUS_NAMES.get(status, "UNKNOWN"),
         "obj": obj_val,
-        "num_nodes": model.NodeCount,
-        "num_sols": model.SolCount,
-        "solving_time": model.Runtime,
+        "num_nodes": _safe_model_attr(model, "NodeCount"),
+        "num_sols": _safe_model_attr(model, "SolCount"),
+        "solving_time": _safe_model_attr(model, "Runtime"),
+        "obj_bound": _safe_model_attr(model, "ObjBound"),
+        "mip_gap": _safe_model_attr(model, "MIPGap"),
+        "work": _safe_model_attr(model, "Work"),
+        "t_first_feas": first_solution["t_first_feas"],
+        "obj_first_feas": first_solution["obj_first_feas"],
+        "gap_first_feas": first_solution["gap_first_feas"],
+        "constr_vio": _safe_model_attr(model, "ConstrVio"),
+        "int_vio": _safe_model_attr(model, "IntVio"),
+        "max_coeff": _safe_model_attr(model, "MaxCoeff"),
+        "max_rhs": _safe_model_attr(model, "MaxRHS"),
+        "max_mem_used": _safe_model_attr(model, "MaxMemUsed"),
     }
 
     return results

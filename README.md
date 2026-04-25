@@ -85,7 +85,22 @@ python generate.py dataset=mis \
 ```
 The generated instances and benchmarking results are saved under `${TRAIN DIR}/generate/${DATE}/${TIME}`.
 
-### 4. Visualizing preprocess, train, and generate outputs
+### 4. Rerunning benchmark for existing samples
+
+To rerun benchmark evaluation for generated samples without retraining,
+```
+python scripts/benchmark.py \
+    --samples-dir ${TRAIN DIR}/eta-0.1/samples_step_500 \
+    --benchmark-dir ${TRAIN DIR}/eta-0.1/benchmark_step_500_rerun \
+    --dataset-stats-dir preprocess/mis/stats \
+    --num-workers 10 \
+    --num-samples 10000
+```
+This reads existing generated instances from `samples_step_500`, recomputes `features.csv` and `solving_results.csv`, and writes the benchmark summary to `info.json`.
+
+If `--dataset-stats-dir` is omitted, it defaults to `preprocess/${dataset}/stats`, where `--dataset` defaults to `mis`.
+
+### 5. Visualizing preprocess, train, and generate outputs
 
 The repository also provides standalone visualization scripts under `./scripts/`. These scripts are designed to work directly on exported CSV files, TensorBoard event files, or training logs, so they can be run independently on a server even if the full training environment is not available locally.
 

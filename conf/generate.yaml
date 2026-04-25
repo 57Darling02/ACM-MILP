@@ -8,7 +8,7 @@ defaults:
   - paths: [common, generate]
 
 seed: 3
-cuda: 0
+cuda: 1
 num_workers: 10
 
 dir: ./outputs/generate

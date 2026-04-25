@@ -120,28 +120,20 @@ def compute_kde_curve(values: np.ndarray, points: int = 256) -> Optional[Tuple[n
     return x, y
 
 
-def density_on_grid(values: np.ndarray, grid: np.ndarray) -> np.ndarray:
-    if values.size == 0:
-        return np.zeros_like(grid)
-
-    std = float(np.std(values))
-    if values.size < 2 or std < 1e-12:
-        center = float(np.mean(values))
-        width = max((grid[-1] - grid[0]) * 0.01, 1e-3)
-        density = np.exp(-0.5 * ((grid - center) / width) ** 2)
-        density = density / (width * np.sqrt(2 * np.pi))
-        return density
-
-    return gaussian_kde(values)(grid)
+def normalize_histogram(counts: np.ndarray) -> np.ndarray:
+    counts = np.asarray(counts, dtype=float)
+    counts = np.clip(counts, 0.0, None)
+    total = counts.sum()
+    if total <= 0:
+        return np.full_like(counts, 1.0 / len(counts), dtype=float)
+    counts = counts + 1e-12
+    return counts / counts.sum()
 
 
-def normalize_density(density: np.ndarray) -> np.ndarray:
-    density = np.asarray(density, dtype=float)
-    density = np.clip(density, 0.0, None) + 1e-12
-    return density / density.sum()
+def compute_js_divergence(values_a: np.ndarray, values_b: np.ndarray, bins: int = 5) -> Optional[float]:
+    if bins <= 0:
+        raise ValueError("bins must be positive")
 
-
-def compute_js_divergence(values_a: np.ndarray, values_b: np.ndarray, points: int = 512) -> Optional[float]:
     values_a = np.asarray(values_a, dtype=float)
     values_b = np.asarray(values_b, dtype=float)
     values_a = values_a[np.isfinite(values_a)]
@@ -150,26 +142,26 @@ def compute_js_divergence(values_a: np.ndarray, values_b: np.ndarray, points: in
     if values_a.size == 0 or values_b.size == 0:
         return None
 
-    left = float(min(values_a.min(), values_b.min()))
-    right = float(max(values_a.max(), values_b.max()))
     pooled = np.concatenate([values_a, values_b])
-    pooled_std = float(np.std(pooled))
-    span = right - left
-    padding = max(span * 0.05, pooled_std * 0.25, 1e-3)
-    grid = np.linspace(left - padding, right + padding, points)
+    if pooled.std() < 1e-10:
+        return 0.0
 
-    p = normalize_density(density_on_grid(values_a, grid))
-    q = normalize_density(density_on_grid(values_b, grid))
+    _, edges = np.histogram(pooled, bins=bins, density=True)
+    p_counts, _ = np.histogram(values_a, bins=edges)
+    q_counts, _ = np.histogram(values_b, bins=edges)
+
+    p = normalize_histogram(p_counts)
+    q = normalize_histogram(q_counts)
     m = 0.5 * (p + q)
 
     js_divergence = 0.5 * (np.sum(p * np.log(p / m)) + np.sum(q * np.log(q / m)))
     return float(js_divergence)
 
 
-def compute_js_divergence_from_series(series_a: pd.Series, series_b: pd.Series, points: int = 512) -> Optional[float]:
+def compute_js_divergence_from_series(series_a: pd.Series, series_b: pd.Series, bins: int = 5) -> Optional[float]:
     values_a = to_numeric_series(series_a).to_numpy()
     values_b = to_numeric_series(series_b).to_numpy()
-    return compute_js_divergence(values_a, values_b, points=points)
+    return compute_js_divergence(values_a, values_b, bins=bins)
 
 
 def make_distribution_plot(
@@ -538,3 +530,4 @@ def plot_training_loss(
 def write_manifest(path: str, payload: Dict) -> None:
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
+
