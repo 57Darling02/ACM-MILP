@@ -29,6 +29,8 @@ def parse_args():
     )
     parser.add_argument("--num-workers", type=int, default=10)
     parser.add_argument("--num-samples", type=int, default=10000)
+    parser.add_argument("--mip-gap", type=float, default=0.0)
+    parser.add_argument("--time-limit", type=float, default=60.0)
     return parser.parse_args()
 
 
@@ -41,6 +43,10 @@ def main():
         {
             "num_workers": args.num_workers,
             "num_samples": args.num_samples,
+            "solver": {
+                "mip_gap": args.mip_gap,
+                "time_limit": args.time_limit,
+            },
         }
     )
     run_info = OmegaConf.create(

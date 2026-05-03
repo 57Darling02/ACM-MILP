@@ -72,10 +72,15 @@ def compute_features_(file: str, data_dir: str):
     return features
 
 
-def solve_instances(samples_dir: str, num_workers: int):
+def solve_instances(samples_dir: str, num_workers: int, mip_gap: float = 0.0, time_limit: float = 60.0):
     samples = os.listdir(samples_dir)
 
-    func = partial(solve_instance_, samples_dir=samples_dir)
+    func = partial(
+        solve_instance_,
+        samples_dir=samples_dir,
+        mip_gap=mip_gap,
+        time_limit=time_limit,
+    )
     with mp.Pool(num_workers) as pool:
         solving_results = list(
             tqdm(pool.imap(func, samples), total=len(samples), desc="Solving instances"))
@@ -83,8 +88,8 @@ def solve_instances(samples_dir: str, num_workers: int):
     return solving_results
 
 
-def solve_instance_(instance: str, samples_dir: str):
+def solve_instance_(instance: str, samples_dir: str, mip_gap: float, time_limit: float):
     sample_path = os.path.join(samples_dir, instance)
     solving_results = {"instance": instance}
-    solving_results.update(solve_instance(sample_path))
+    solving_results.update(solve_instance(sample_path, mip_gap=mip_gap, time_limit=time_limit))
     return solving_results

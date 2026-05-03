@@ -88,7 +88,11 @@ def assess_distribution(config, samples_dir, dataset_stats_dir, benchmark_dir):
 
 def assess_solving_results(config, samples_dir, dataset_stats_dir, benchmark_dir):
     samples_solving_results = solve_instances(
-        samples_dir, num_workers=config.num_workers)
+        samples_dir,
+        num_workers=config.num_workers,
+        mip_gap=config.solver.mip_gap,
+        time_limit=config.solver.time_limit,
+    )
     samples_solving_results = pd.DataFrame(
         samples_solving_results).set_index("instance")
     samples_solving_results.to_csv(os.path.join(

@@ -1,0 +1,5 @@
+num_workers: ${num_workers}
+num_samples: 4000
+solver:
+  mip_gap: 0.1
+  time_limit: 300.0

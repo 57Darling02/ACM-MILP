@@ -2,6 +2,8 @@
 
 本文档是论文《ACM-MILP: Adaptive Constraint Modification via Grouping and Selection for Hardness-Preserving MILP Instance Generation》（作者：郭子傲、李阳、刘畅、欧阳文利、严骏驰，发表于ICML 2024）的配套代码说明。
 
+针对当前仓库中的铁路 MILP 迁移实验，建议优先阅读根目录下的 [exp.md](./exp.md)。
+
 ## 环境配置
 
 ### Python 环境

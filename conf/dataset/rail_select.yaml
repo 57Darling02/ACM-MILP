@@ -1,0 +1,7 @@
+name: mis
+num_train: 300
+resolution: 4.0
+
+rhs_type: int
+lhs_type: int
+obj_type: int

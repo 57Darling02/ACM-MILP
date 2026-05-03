@@ -1,0 +1,5 @@
+num_samples: 20
+mask_ratio: 0.1
+
+batch_size: 8
+num_workers: 10

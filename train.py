@@ -20,8 +20,8 @@ def train(config: DictConfig):
     torch.cuda.set_device(config.cuda)
     tb_writter.set_logger(config.paths.tensorboard_dir)
 
-    model = ACMMILP.load_model(config)
-    emb_model = ACMMILP.load_model(config)
+    model = ACMMILP.load_model(config, config.pretrained_model_path)
+    emb_model = ACMMILP.load_model(config, config.pretrained_model_path)
     logging.info(f"Loaded model.")
     logging.info(
         f"  Number of model parameters: {sum([x.nelement() for x in model.parameters()]) / 1000}K.")
