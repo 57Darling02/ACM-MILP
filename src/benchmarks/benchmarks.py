@@ -29,10 +29,15 @@ class Benchmark():
             results: dict, benchmark results
         """
         os.makedirs(benchmark_dir, exist_ok=True)
-        distribution_results = assess_distribution(
-            self.config, samples_dir, self.dataset_stats_dir, benchmark_dir)
-        solving_results = assess_solving_results(
-            self.config, samples_dir, self.dataset_stats_dir, benchmark_dir)
+        distribution_results = None
+        if not bool(getattr(self.config, "skip_distribution", False)):
+            distribution_results = assess_distribution(
+                self.config, samples_dir, self.dataset_stats_dir, benchmark_dir)
+
+        solving_results = None
+        if not bool(getattr(self.config, "skip_solving", False)):
+            solving_results = assess_solving_results(
+                self.config, samples_dir, self.dataset_stats_dir, benchmark_dir)
         results = {
             "distribution": distribution_results,
             "solving": solving_results,
@@ -64,10 +69,20 @@ class Benchmark():
 
 
 def assess_distribution(config, samples_dir, dataset_stats_dir, benchmark_dir):
-    samples_features = compute_features(
-        samples_dir, num_workers=config.num_workers)
-    samples_features = pd.DataFrame(samples_features).set_index("instance")
-    samples_features.to_csv(os.path.join(benchmark_dir, "features.csv"))
+    features_path = os.path.join(benchmark_dir, "features.csv")
+    reuse_existing = bool(getattr(config, "reuse_existing", False))
+
+    if reuse_existing and os.path.exists(features_path):
+        logging.info("Reusing existing feature cache at %s", features_path)
+        samples_features = pd.read_csv(features_path).set_index("instance")
+    else:
+        samples_features = compute_features(
+            samples_dir,
+            num_workers=config.num_workers,
+            max_instances=getattr(config, "max_instances", None),
+        )
+        samples_features = pd.DataFrame(samples_features).set_index("instance")
+        samples_features.to_csv(features_path)
 
     reference_features = pd.read_csv(os.path.join(
         dataset_stats_dir, "features.csv")).set_index("instance")
@@ -87,19 +102,38 @@ def assess_distribution(config, samples_dir, dataset_stats_dir, benchmark_dir):
 
 
 def assess_solving_results(config, samples_dir, dataset_stats_dir, benchmark_dir):
-    samples_solving_results = solve_instances(
-        samples_dir,
-        num_workers=config.num_workers,
-        mip_gap=config.solver.mip_gap,
-        time_limit=config.solver.time_limit,
-    )
-    samples_solving_results = pd.DataFrame(
-        samples_solving_results).set_index("instance")
-    samples_solving_results.to_csv(os.path.join(
-        benchmark_dir, "solving_results.csv"))
+    solving_results_path = os.path.join(benchmark_dir, "solving_results.csv")
+    reuse_existing = bool(getattr(config, "reuse_existing", False))
 
-    reference_solving_results = pd.read_csv(os.path.join(
-        dataset_stats_dir, "solving_results.csv")).set_index("instance")
+    if reuse_existing and os.path.exists(solving_results_path):
+        logging.info("Reusing existing solving cache at %s", solving_results_path)
+        samples_solving_results = pd.read_csv(solving_results_path).set_index("instance")
+    else:
+        samples_solving_results = solve_instances(
+            samples_dir,
+            num_workers=config.num_workers,
+            mip_gap=config.solver.mip_gap,
+            time_limit=config.solver.time_limit,
+            max_instances=getattr(config, "max_instances", None),
+        )
+        samples_solving_results = pd.DataFrame(
+            samples_solving_results).set_index("instance")
+        samples_solving_results.to_csv(solving_results_path)
+
+    reference_solving_results_path = os.path.join(
+        dataset_stats_dir, "solving_results.csv")
+    if not os.path.exists(reference_solving_results_path):
+        logging.warning(
+            "Skip solving benchmark because reference file is missing: %s",
+            reference_solving_results_path,
+        )
+        return {
+            "skipped": True,
+            "reason": f"missing reference file: {reference_solving_results_path}",
+        }
+
+    reference_solving_results = pd.read_csv(
+        reference_solving_results_path).set_index("instance")
 
     samples_solving_time = samples_solving_results.loc[:, [
         "solving_time"]].to_numpy()

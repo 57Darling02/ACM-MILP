@@ -55,8 +55,15 @@ def compute_jsdiv(features1: Union[np.ndarray, str], features2: Union[np.ndarray
     return score, meta_results
 
 
-def compute_features(samples_dir: str, num_workers: int = 1):
-    samples = os.listdir(samples_dir)
+def _select_samples(samples_dir: str, max_instances: int = None):
+    samples = sorted(os.listdir(samples_dir))
+    if max_instances is not None:
+        samples = samples[:max_instances]
+    return samples
+
+
+def compute_features(samples_dir: str, num_workers: int = 1, max_instances: int = None):
+    samples = _select_samples(samples_dir, max_instances=max_instances)
 
     func = partial(compute_features_, data_dir=samples_dir)
     with mp.Pool(num_workers) as pool:
@@ -72,8 +79,8 @@ def compute_features_(file: str, data_dir: str):
     return features
 
 
-def solve_instances(samples_dir: str, num_workers: int, mip_gap: float = 0.0, time_limit: float = 60.0):
-    samples = os.listdir(samples_dir)
+def solve_instances(samples_dir: str, num_workers: int, mip_gap: float = 0.0, time_limit: float = 60.0, max_instances: int = None):
+    samples = _select_samples(samples_dir, max_instances=max_instances)
 
     func = partial(
         solve_instance_,

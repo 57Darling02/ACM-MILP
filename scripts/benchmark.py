@@ -31,6 +31,27 @@ def parse_args():
     parser.add_argument("--num-samples", type=int, default=10000)
     parser.add_argument("--mip-gap", type=float, default=0.0)
     parser.add_argument("--time-limit", type=float, default=60.0)
+    parser.add_argument(
+        "--max-instances",
+        type=int,
+        default=None,
+        help="Only benchmark the first N instances from samples_dir.",
+    )
+    parser.add_argument(
+        "--reuse-existing",
+        action="store_true",
+        help="Reuse benchmark_dir/features.csv and benchmark_dir/solving_results.csv when they already exist.",
+    )
+    parser.add_argument(
+        "--skip-distribution",
+        action="store_true",
+        help="Skip feature-distribution evaluation.",
+    )
+    parser.add_argument(
+        "--skip-solving",
+        action="store_true",
+        help="Skip solver-based evaluation.",
+    )
     return parser.parse_args()
 
 
@@ -47,6 +68,10 @@ def main():
                 "mip_gap": args.mip_gap,
                 "time_limit": args.time_limit,
             },
+            "max_instances": args.max_instances,
+            "reuse_existing": args.reuse_existing,
+            "skip_distribution": args.skip_distribution,
+            "skip_solving": args.skip_solving,
         }
     )
     run_info = OmegaConf.create(
