@@ -1,4 +1,4 @@
-num_samples: 20
+num_samples: 30
 mask_ratio: 0.1
 
 batch_size: 8

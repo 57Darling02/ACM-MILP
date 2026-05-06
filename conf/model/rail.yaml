@@ -3,11 +3,11 @@ common: &common
   embd_size: 16
 
 loss_weights:
-  cons_loss: 0.2
-  degree_loss: 1.0
+  cons_loss: 0.5
+  degree_loss: 1.5
   logits_loss: 1.0
   edge_selection_loss: 2.0
-  weights_loss: 0.2
+  weights_loss: 0.5
 
 graph_embedding:
   <<: *common

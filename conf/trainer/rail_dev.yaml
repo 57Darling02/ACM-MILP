@@ -3,10 +3,10 @@ batch_repeat_size: 1
 
 steps: 2400
 save_start_stage_1: 1200
-save_start_stage_2: 1800
+save_start_stage_2: 2100
 save_step: 600
 update_iters: 20
-update_iters_stage_2: 10
+update_iters_stage_2: 5
 
 lr:
   init: 0.001
